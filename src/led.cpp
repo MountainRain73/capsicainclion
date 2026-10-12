@@ -1,0 +1,117 @@
+// bootstrapped with helpful pointers from 
+//https://www.codeguru.com/cpp/w-p/system/keyboard/article.php/c2825/Manipulating-the-Keyboard-Lights-in-Windows-NT.htm
+
+#include "pch.h"
+#include <windows.h>
+#include <winioctl.h>
+#include "led.h"
+#include <iostream>
+#include "capsicain.h"
+#include "scancodes.h"
+
+//set the actual LED
+int ledSendCommand(HANDLE hKeyboard, USHORT ledFlags)
+{
+    KEYBOARD_INDICATOR_PARAMETERS InputBuffer;    // Input buffer for DeviceIoControl
+    ULONG               DataLength = sizeof(KEYBOARD_INDICATOR_PARAMETERS);
+    ULONG               ReturnedLength; // Number of bytes returned in output buffer
+
+    InputBuffer.LedFlags = ledFlags;
+    IFTRACE std::cout << std::endl << "LED out:" << std::hex << InputBuffer.LedFlags;
+
+    InputBuffer.UnitId = 0;
+    if (!DeviceIoControl(hKeyboard, IOCTL_KEYBOARD_SET_INDICATORS,
+        &InputBuffer, DataLength,
+        NULL, 0, &ReturnedLength, NULL))
+        return GetLastError();
+
+    return 0;
+}
+
+//toggles the specified LED on all attached keyboards
+//possible LEDs:  SC_CAPS, SC_SCRLOCK, SC_NUMLOCK
+//  SC_NOP resets the LEDs to the actual key state
+bool WINAPI setLED(UINT ledKeySC, bool ledOn)
+{
+    USHORT ledFlags = 0;
+    UINT nDevices = 0;
+    PRAWINPUTDEVICELIST pRawInputDeviceList;
+    UINT dlSize = sizeof(RAWINPUTDEVICELIST);
+
+    //check the actual state of all LED keys, because keyboard may not have LEDs (always returns LED state 0)
+    USHORT ledBitmask = 0;
+    if ((GetKeyState(VK_CAPITAL) & 0x0001) != 0)
+        ledBitmask |= LED_BITMASK_CAPS;
+    if ((GetKeyState(VK_SCROLL) & 0x0001) != 0)
+        ledBitmask |= LED_BITMASK_SCRLOCK;
+    if ((GetKeyState(VK_NUMLOCK) & 0x0001) != 0)
+        ledBitmask |= LED_BITMASK_NUMLOCK;
+
+    //modify with the requested LED
+    USHORT requestedBitmask = 0;
+    if (ledKeySC == SC_CAPS)
+        requestedBitmask = LED_BITMASK_CAPS;
+    else if (ledKeySC == SC_SCRLOCK)
+        requestedBitmask = LED_BITMASK_SCRLOCK;
+    else if (ledKeySC == SC_NUMLOCK)
+        requestedBitmask = LED_BITMASK_NUMLOCK;
+    else if ((ledKeySC == SC_NOP)) 
+        requestedBitmask = 0;
+    else
+    {
+        std::cout << std::endl << "Error: cannot set LED state for scancode: " << ledKeySC;
+        return false;
+    }
+
+    // Real mask to be set
+    ledFlags = ledOn ? ledBitmask | requestedBitmask : ledBitmask & ~requestedBitmask;
+
+    //get a list of all hardware devices
+    if (GetRawInputDeviceList(NULL, &nDevices, dlSize) != 0)
+    {
+        std::cout << std::endl << "ERROR: GetRawInputDeviceList() found no keyboards";
+        return false;
+    }
+    pRawInputDeviceList = (RAWINPUTDEVICELIST*)malloc((size_t)dlSize * nDevices);
+    if (pRawInputDeviceList == NULL)
+    {
+        std::cout << std::endl << "ERROR: Cannot malloc for device list";
+        return false;
+    }
+    GetRawInputDeviceList(pRawInputDeviceList, &nDevices,
+        sizeof(RAWINPUTDEVICELIST));
+
+    for (UINT devNum = 0; devNum < nDevices; devNum++)
+    {
+        if (pRawInputDeviceList[devNum].dwType == RIM_TYPEKEYBOARD)
+        {
+            IFTRACE std::cout << std::endl << devNum << " = keyboard";
+
+            char DeviceName[256] = "";
+            unsigned int DeviceNameLength = 256;
+
+            GetRawInputDeviceInfo(pRawInputDeviceList[devNum].hDevice, RIDI_DEVICENAME, NULL, &DeviceNameLength);
+            GetRawInputDeviceInfo(pRawInputDeviceList[devNum].hDevice, RIDI_DEVICENAME, DeviceName, &DeviceNameLength);
+            IFTRACE std::cout << std::endl << devNum << "-" << DeviceName;
+
+            HANDLE hKeyboard = CreateFileA(DeviceName, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+            if (hKeyboard == INVALID_HANDLE_VALUE)
+            {
+                std::cout << std::endl << "Invalid handle, cannot open keyboard";
+                continue;
+            }            
+
+            int res = ledSendCommand(hKeyboard, ledFlags);
+            if (res != 0)
+                std::cout << std::endl << "Cannot set LED state: " << res << " (KB probably has no LED)";
+
+            CloseHandle(hKeyboard);
+        }
+    }
+
+    // after the job, free the RAWINPUTDEVICELIST
+    free(pRawInputDeviceList);
+
+    return true;
+}
+

@@ -1,0 +1,57 @@
+# Build output directories
+cmake-build-*/
+build/
+bin/
+out/
+
+# Compiled object files
+*.obj
+*.o
+*.pch
+*.pdb
+*.ilk
+*.res
+*.exe
+*.dll
+*.lib
+*.a
+*.so
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+*.ninja*
+.ninja_deps
+.ninja_log
+compile_commands.json
+CMakeConfigureLog.yaml
+
+# IDE files
+.vs/
+.vscode/
+.idea/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+*.suo
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+
+# Testing
+Testing/
+
+# CLion environment
+clion-environment.txt
+clion-*-log.txt
+
+# Keep example config files
+!src/capsicain.example.ini
+!src/capsicain.kingcon.ini

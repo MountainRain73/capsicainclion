@@ -1,0 +1,215 @@
+Ongoing stream of what I want to remember...
+
+TODO
+- finish v94, what about shiftconfig and fluid key repeat for gaming?
+- timeout for tappings, deadkeys?
+- nicer macro 'language'
+- accented altChars should not ignore CapsLock ON
+- rethink double tap breaking tapped state
+- nicer syntax for input sequences (COMPOSE f y i [.T] > print("For your information")
+- directly send UTF chars to the upper echelons
+- license yaawn
+
+CLEANUP
+- precise timers, profiling
+- move prints to separate file
+- move ini loads
+- console to win form with worker thread
+- separate all windows stuff (prepare linux version)
+- rework scancodes, E0 &0x80, iks state
+
+v62 and older
+New ini GLOBALs
+- delayOnStartupMS {number} (default 0. Useful if you need time to release keys when starting capsicain with a shortcut)
+- startMinimized (default false. Capsicain starts minimized in the taskbar)
+- startInTraybar (overrides startMinimized. Capsicain starts with a traybar icon instead of toolbar icon)
+
+ESC key
+Always lazy key with Capsicain (fires on release)
+ESC + mod makes sticky mods
+REWIRE ESC X   The key will not autorepeat
+
+Modified handling for showing hiding window / taskbar / traybar
+- any command with "info output" pops up the window
+- can't move to tray on minimize (console is out of the Win event loop, it only sees incoming keys)
+
+v63beta
+git branch dev
+massive changes following the switch from 8bit scancode to int vcode...
+scancode is original
+vcode is copy of original; possibly changed later
+now free to define many virtual codes for specific functions like "turn LED on"
+rewireIfTapped: Tab is first mapped to mod10, then 'iftapped' to Tab later
+now assume that keysDownSent[] really knows the state of what Windows knows
+
+v65beta
+rework the tapping stuff
+double tap no longer breaks tap
+removed OPTION ShiftShiftToCapsLock (obsolete)
+COMBO can deal with modifiers like COMBO LSHF [&.] > key (CAPSON)
+new VKeys CAPSON, CAPSOFF
+warn about unknown OPTIONs
+add GLOBAL startAHK
+
+v66beta
+check for unknown GLOBALs
+move constants to constants.h
+move rewire conf to array
+
+v67beta
+- rewire // stands for "don't process this". NOP results in action.
+- add 'time since last key' to debug output
+- detect slow taps (those clear any tapped state)
+
+v68beta
+Configurable TapHold. Phew. Tapdance is complicated.
+
+v69beta VS2019
+- upgrade from VS2017 to VS2019
+- retarget to latest vcruntime, msvcp (not sure if this still works on Win7)
+-> may need to distribute new DLLs
+- c++ 14 > c++ 17
+- linter complains about bit operations on unsigned char (suck)
+- cleaned up three new warnings about conversion types
+- app icon is broken for debug (suck)
+- breaking change: PAUSE:10 is now SLEEP 1000.  Now sleeps n milliseconds (was 1/10s before)
+- take care of moddedKeys / when and when not to release physical modifiers
+- now moddedKey() releases ALL physical modifiers
+
+v70beta: fix flipAppleKeys
+- some doc cleanup
+note: flipYZ does not clash with the new rewire style since it's soft and late anyway
+
+v71beta: dead keys
+- startup console size 800x600
+- create diacritics with 
+  COMBO U [..T.] > deadkey(U)  //tapped-RCtrl, U activates deadkey SC_U
+  COMBO DEADKEY-U  A [& ....] > altChar(0196)  //RSHF+A with dk-U active = 'Ä'
+
+v72beta: OR
+- [...| ...|] matches, if LShift OR RShift is down
+- deadkey fixes
+- added a ton of accented characters to the ini
+
+v73beta: no more VS DLLs, fix
+- static linking, ms* DLLs no longer required (Properties > codegen > RTlib=MT)
+- fix: works now: empty mod string like COMBO A [] > key(B)
+- some .ini and .ahk cleanup
+
+v74beta
+- ESC will stop macro and user/password recording
+- fix REWIRE A NOP something
+- debug off by default
+- only start one instance (release and debug can run in parallel)
+- remove GLOBAL delayOnStartup. Not needed, keys are auto released
+- layer change resets all states
+- fix: reset all options to default on layer change
+- clean up: debug string
+- unfinished: icon for disabled
+- Reset with ESC-BSP
+- clean up: reload, layer change, all ESC commands work everywhere
+- remove sticky mods feature. Too hacky to get it right
+
+v75beta: tray icon indicates active layer
+
+v76beta: GLOBAL capsicainEnableDisableKey
+If defined, this toggles the disabled state.
+The key will also be forwarded to Windows.
+Nice: ScrLock indicates state with LED and is otherwise a useless key.
+
+v77beta: change name to capsicainOnOffKey
+
+v78beta: configurable layer change
+- new functions > layerSwitch(0..9), > layerPrevious()
+- disable Ctrl-C
+- (new internal vkeys LAYERSWITCH, LAYERPREVIOUS)
+
+v79: fix reload, final non-beta
+
+v80: change ALL "Layer" to "Config"
+- the word "Layer" was for historical reasons, it made no sense with how it works now.
+- old .ini keywords with "layer" are still supported, but throw an 'INFO deprecated'
+- set platform toolset to v141 so that VS2017 works out of the box
+
+v81: rewire: undo preceding tapped state on tap&hold
+- tap&hold always results in tap first. The 'mod tapped' state needs to be cleared
+- cleanup modifier bitmask functions (take vcode instead of scancode)
+
+v82beta: record/play simple macros (usr/pw, others)
+- removed dedicated ESC+U ESC+P macros
+- 10 configurable macros (+ the existing 'hard macro 0' with ESC JKL;)
+- new .ini Combo functions
+  o recordMacro(1..10)
+  o recordSecretMacro(1..10) (never shown on the console, obfuscated in RAM)
+  o playMacro(1..10)
+- new internal VKeys 
+  VK_CPS_RECORDMACRO, VK_CPS_RECORDSECRETMACRO, VK_CPS_PLAYMACRO, VK_CPS_OBFUSCATED_SEQUENCE_START
+- tray icon to indicate recording is ongoing
+- fix 'deadkey-x ] []' // 'combo(np++x)' // 'comboNtimes(x+,,3)'
+
+v83beta: 
+- fix logging of escape scancode E1
+- ignore other arcane escape codes gracefully
+- translate Ctrl-NumLock and Pause key (E1-Ctrl-NumLock) to new VK_CPS_PAUSE ("PAUSE")
+- discard VK Pause if Capsicain is the foreground window, so Windows does not freeze it.
+  This is not bullet proof. In disabled state / layer 0, capsicain does not check any keys.
+  Still possible to menu > Edit > Mark > select text, which also pauses the console process.
+- Windows formalities that show up in Properties (version, file description, ...)
+
+v84beta: Performance timers, fix modstring []
+- removed performance optimization that broke 'no-modifier' rules like 'combo x []'
+- nicer debug output formatting
+- compile time switch IFTRACE for low level details
+- compile time switch IFPROF for time measurements while debug is off
+- new performance profiling timers
+  Result: the cost of debugging output is not maybe 50%, but 99%
+  Average key processing time is 2ms with debugging on, and 0.02ms when off
+  -> don't do minor performance optimizations, it's not worth it
+
+v85beta: Enable hex input for altChar, like > altChar(+11D)
+  requires 'HKEY_CURRENT_USER\Control Panel\Input Method\EnableHexNumpad 1'
+  see https://en.wikipedia.org/wiki/Unicode_input#Hexadecimal_input
+
+v85beta2: max macros = 20+1
+
+v86: handle the messy keys PRINT,SCRLOCK,PAUSE,NUMLOCK
+- breaking change: key label SYSRQ is now PRINT
+- esc to stop macro drops the esc event
+- deal with physical mods that start macro record/play
+- clean up Pause key
+- crude bug in isModifierDown(), wasn't used. Removed.
+  Faster check: macro IS_LCTRL_DOWN
+- new vkeys BREAK, ALTPRINT
+- new GLOBALs DontTranslateMessyKeys, DontProtectConsole
+- by default drops BREAK and PAUSE signals when capsicain is foreground
+- by default maps BREAK and pause-sequence to PAUSE, ALTPRINT to PRINT
+- can use PAUSE as ON/OFF toggle (what a mess)
+
+v87beta: capsicainOnOffKey can control the LEDs. Clean up On/Off with Pause
+- if Global capsicainOnOffKey is one of the three keys with LEDs,
+  the state of the LED is exclusively controlled by capsicain OnOff state,
+  even when the actual function (like CapsLock) is changed via Combo.
+- clean up onOff key. The key is never forwarded.
+- fixed 'Autorepeating Pause as ON/OFF toggle sends Pause to foreground console'
+- clean up 'previous key history'
+
+v88: fix BOM handling
+
+v89: new release
+
+v90: merged bitoj's pull request #33 : LED reset on exit
+
+v91: fix issue #35 (alpha_from, alpha_to)
+
+v92: fix issue #32 (no 'locking key' state reset; fix LED handling)
+- only reset the state of (Caps|Scr|Num)Lock on ESC+Backspace; not on startup, shutdown, KB change
+- ESC does *not* reset ScrLock on Cherry, don't set LEDs on Esc (might have been confusion from the LED code)
+- (send NumLock), then (get Windows NumLock state) was too fast for Win to register the change.
+
+v93: merge bitoj's fixes
+
+lic:
+- any problem is your problem
+- open ticket on redistribution, commercial rollout
+- rename on modification; "based on capsicain""
+- improve one detail in this world
